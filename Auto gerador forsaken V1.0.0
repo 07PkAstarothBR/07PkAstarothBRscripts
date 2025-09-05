@@ -1,0 +1,194 @@
+-- // Auto Generator Script com GUI móvel + fechar/reabrir + salvamento permanente
+-- // Versão Mobile com cantos arredondados + sombra
+-- // Necessário executor com suporte a writefile/readfile/isfile
+
+local SaveFile = "autogen_gui.json"
+local HttpService = game:GetService("HttpService")
+
+-- Funções de salvar/carregar
+local function SaveSettings(data)
+    writefile(SaveFile, HttpService:JSONEncode(data))
+end
+
+local function LoadSettings()
+    if isfile(SaveFile) then
+        return HttpService:JSONDecode(readfile(SaveFile))
+    else
+        return {}
+    end
+end
+
+-- Carregar posições salvas
+local Settings = LoadSettings()
+getgenv().AutoGenEnabled = Settings.AutoGenEnabled or false
+local FramePos = Settings.FramePos or {ScaleX = 0.3, OffsetX = 0, ScaleY = 0.3, OffsetY = 0}
+local ReopenPos = Settings.ReopenPos or {ScaleX = 0, OffsetX = 10, ScaleY = 0.8, OffsetY = 0}
+
+-- ===== SUA SOURCE ORIGINAL (mantida) =====
+task.spawn(function()
+    while true do
+        if getgenv().AutoGenEnabled then
+            local map = workspace:FindFirstChild("Map")
+                and workspace.Map:FindFirstChild("Ingame")
+                and workspace.Map.Ingame:FindFirstChild("Map")
+
+            if map then
+                for _, gen in pairs(map:GetChildren()) do
+                    if gen:IsA("Model") and gen.Name == "Generator" then
+                        local re = gen:FindFirstChild("Remotes") and gen.Remotes:FindFirstChild("RE")
+                        if re then
+                            re:FireServer()
+                        end
+                    end
+                end
+            end
+        end
+        task.wait(2.5)
+    end
+end)
+-- =========================================
+
+-- Criando GUI
+local ScreenGui = Instance.new("ScreenGui")
+do
+    local parentGui = (gethui and gethui()) or game:FindFirstChildOfClass("CoreGui") or game.CoreGui
+    ScreenGui.Parent = parentGui
+end
+ScreenGui.ResetOnSpawn = false
+
+-- Função para estilizar elementos (cantos + "sombra" leve via borda)
+local function StyleObject(obj, radius)
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, radius or 12)
+    corner.Parent = obj
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Thickness = 1.5
+    stroke.Color = Color3.fromRGB(0, 0, 0)
+    stroke.Transparency = 0.3
+    stroke.Parent = obj
+end
+
+-- Painel principal
+local Frame = Instance.new("Frame")
+Frame.Size = UDim2.new(0, 220, 0, 120)
+Frame.Position = UDim2.new(FramePos.ScaleX, FramePos.OffsetX, FramePos.ScaleY, FramePos.OffsetY)
+Frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+Frame.Active = true
+Frame.Draggable = true
+Frame.Parent = ScreenGui
+Frame.BorderSizePixel = 0
+StyleObject(Frame, 16)
+
+-- Título
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(0.75, 0, 0.25, 0)
+Title.BackgroundColor3 = Color3.fromRGB(45,45,45)
+Title.Text = "⚡ Auto Generator"
+Title.TextColor3 = Color3.fromRGB(255,255,255)
+Title.Font = Enum.Font.SourceSansBold
+Title.TextSize = 20
+Title.Parent = Frame
+Title.BorderSizePixel = 0
+StyleObject(Title, 12)
+
+-- Botão de Fechar "X"
+local CloseButton = Instance.new("TextButton")
+CloseButton.Size = UDim2.new(0.25, 0, 0.25, 0)
+CloseButton.Position = UDim2.new(0.75, 0, 0, 0)
+CloseButton.BackgroundColor3 = Color3.fromRGB(200,0,0)
+CloseButton.Text = "✖"
+CloseButton.TextColor3 = Color3.fromRGB(255,255,255)
+CloseButton.Font = Enum.Font.SourceSansBold
+CloseButton.TextSize = 22
+CloseButton.Parent = Frame
+CloseButton.BorderSizePixel = 0
+CloseButton.AutoButtonColor = true
+StyleObject(CloseButton, 10)
+
+-- Botão flutuante para reabrir
+local ReopenButton = Instance.new("TextButton")
+ReopenButton.Size = UDim2.new(0, 80, 0, 40)
+ReopenButton.Position = UDim2.new(ReopenPos.ScaleX, ReopenPos.OffsetX, ReopenPos.ScaleY, ReopenPos.OffsetY)
+ReopenButton.BackgroundColor3 = Color3.fromRGB(50,50,200)
+ReopenButton.Text = "📂 Abrir"
+ReopenButton.TextColor3 = Color3.fromRGB(255,255,255)
+ReopenButton.Font = Enum.Font.SourceSansBold
+ReopenButton.TextSize = 20
+ReopenButton.Visible = false
+ReopenButton.Active = true
+ReopenButton.Draggable = true
+ReopenButton.Parent = ScreenGui
+ReopenButton.BorderSizePixel = 0
+ReopenButton.AutoButtonColor = true
+StyleObject(ReopenButton, 12)
+
+-- Botão de Toggle
+local ToggleButton = Instance.new("TextButton")
+ToggleButton.Size = UDim2.new(0.85, 0, 0.45, 0)
+ToggleButton.Position = UDim2.new(0.075, 0, 0.45, 0)
+ToggleButton.Font = Enum.Font.SourceSansBold
+ToggleButton.TextSize = 22
+ToggleButton.TextColor3 = Color3.fromRGB(255,255,255)
+ToggleButton.Parent = Frame
+ToggleButton.BorderSizePixel = 0
+ToggleButton.AutoButtonColor = true
+StyleObject(ToggleButton, 12)
+
+-- Função: atualizar aparência do botão toggle
+local function UpdateToggleUI()
+    if getgenv().AutoGenEnabled then
+        ToggleButton.Text = "Desativar"
+        ToggleButton.BackgroundColor3 = Color3.fromRGB(0,200,0)
+    else
+        ToggleButton.Text = "Ativar"
+        ToggleButton.BackgroundColor3 = Color3.fromRGB(200,0,0)
+    end
+end
+
+-- Função: salvar tudo
+local function SaveAll()
+    SaveSettings({
+        AutoGenEnabled = getgenv().AutoGenEnabled,
+        FramePos = {
+            ScaleX = Frame.Position.X.Scale,
+            OffsetX = Frame.Position.X.Offset,
+            ScaleY = Frame.Position.Y.Scale,
+            OffsetY = Frame.Position.Y.Offset
+        },
+        ReopenPos = {
+            ScaleX = ReopenButton.Position.X.Scale,
+            OffsetX = ReopenButton.Position.X.Offset,
+            ScaleY = ReopenButton.Position.Y.Scale,
+            OffsetY = ReopenButton.Position.Y.Offset
+        }
+    })
+end
+
+-- Inicializar Toggle
+UpdateToggleUI()
+
+-- Clique do toggle
+ToggleButton.MouseButton1Click:Connect(function()
+    getgenv().AutoGenEnabled = not getgenv().AutoGenEnabled
+    UpdateToggleUI()
+    SaveAll()
+end)
+
+-- Fechar GUI principal
+CloseButton.MouseButton1Click:Connect(function()
+    Frame.Visible = false
+    ReopenButton.Visible = true
+    SaveAll()
+end)
+
+-- Reabrir GUI principal
+ReopenButton.MouseButton1Click:Connect(function()
+    Frame.Visible = true
+    ReopenButton.Visible = false
+    SaveAll()
+end)
+
+-- Salvamento automático da posição
+Frame:GetPropertyChangedSignal("Position"):Connect(SaveAll)
+ReopenButton:GetPropertyChangedSignal("Position"):Connect(SaveAll)
