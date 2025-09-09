@@ -1,1 +1,1 @@
-return "TEMP_KEY"
+return "4S@}AqWrQD!a{UTOf:Y/]S{fH+<0qZ"
