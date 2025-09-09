@@ -1,13 +1,24 @@
--- 07AstarothGui.lua
--- Versão: 1.0.0 Beta
--- Mantém a source original do usuário (auto generator) + GUI completa com login, categorias, temas com scroll, admin/secret protegido e persistência.
+-- 07AstarothGUI_Fix.lua
+-- Versão: 1.1 (Key-Gate via GitHub)
+-- Observação: Este arquivo integra verificação de chave remota (key.lua) hospedada no GitHub.
+-- O painel principal só abre com a key correta do GitHub. O botão "Secret (Admin)" continua
+-- dependendo de ADMIN_PASSWORD para alterar condição, mas isso é interno à GUI.
+-- A automação de ações do jogo foi deixada como *placeholder* para você ligar ao seu jogo.
 
 -- ========================= CONFIG / VARIÁVEIS GLOBAIS =========================
 local HttpService = game:GetService("HttpService")
 
 local SAVE_FILE = "07AstarothGui.json"
-local VERSION   = "1.0.0 Beta"
+local VERSION   = "1.1 KeyGate"
 local ADMIN_PASSWORD = "Adm" -- você pode alterar essa senha aqui
+
+-- 🔑 CONFIG DA KEY NO GITHUB
+-- Ajuste as duas constantes abaixo para seu repositório:
+local KEY_URL = "https://raw.githubusercontent.com/07PkAstarothBR/07PkAstarothBRscripts/main/key.lua"
+-- O key.lua deve conter UM dos formatos abaixo:
+--   1) return [[SUA-KEY-AQUI]]
+--   2) return "SUA-KEY-AQUI"
+--   3) SUA-KEY-AQUI   (apenas o texto da key, sem return/aspas)
 
 getgenv().ScriptActive   = true             -- controle para encerrar script pelo botão X do login
 getgenv().AutoGenEnabled = false            -- será carregado do JSON se existir
@@ -52,25 +63,96 @@ local Theme = Settings.Theme or {
 
 local function C3(t) return Color3.fromRGB(t[1],t[2],t[3]) end
 
--- ========================= SOURCE ORIGINAL (MANTIDA) =========================
--- Loop original do usuário para acionar os geradores. Apenas usa getgenv().AutoGenEnabled e getgenv().AutoGenDelay.
+-- ========================= KEY FETCH / VERIFICAÇÃO =========================
+local CachedKey = nil
+local LastFetch = 0
+
+local function http_get_any(url)
+    -- Tenta várias APIs conhecidas em executores; cai no HttpGet nativo por último.
+    local ok, body
+
+    -- syn.request
+    if syn and syn.request then
+        ok, body = pcall(function()
+            local r = syn.request({Url = url, Method = "GET"})
+            if r and r.Body then return r.Body end
+        end)
+        if ok and body and body ~= "" then return body end
+    end
+
+    -- request (KRNL/Fluxus)
+    if request then
+        ok, body = pcall(function()
+            local r = request({Url = url, Method = "GET"})
+            if r and r.Body then return r.Body end
+        end)
+        if ok and body and body ~= "" then return body end
+    end
+
+    -- http_request
+    if http_request then
+        ok, body = pcall(function()
+            local r = http_request({Url = url, Method = "GET"})
+            if r and r.Body then return r.Body end
+        end)
+        if ok and body and body ~= "" then return body end
+    end
+
+    -- game:HttpGet
+    ok, body = pcall(function()
+        return game:HttpGet(url)
+    end)
+    if ok and body and body ~= "" then return body end
+
+    return nil
+end
+
+local function parse_key_from_text(txt)
+    if not txt then return nil end
+    -- tenta: return [[KEY]]
+    local m = txt:match("^%s*return%s*%[%[(.-)%]%]%s*$")
+    if m and m ~= "" then return (m:gsub("%s+$","")) end
+
+    -- tenta: return "KEY"  (aspas simples ou duplas)
+    m = txt:match('^%s*return%s*"(.-)"%s*$') or txt:match("^%s*return%s*'(.-)'%s*$")
+    if m and m ~= "" then return (m:gsub("%s+$","")) end
+
+    -- fallback: primeira linha limpa
+    m = txt:match("([^\r\n]+)")
+    if m and m ~= "" then return (m:gsub("^%s+",""):gsub("%s+$","")) end
+
+    return nil
+end
+
+local function refresh_remote_key(force)
+    local now = tick()
+    if not force and (now - LastFetch) < 30 then
+        return CachedKey
+    end
+    local raw = http_get_any(KEY_URL)
+    local key = parse_key_from_text(raw)
+    if key and key ~= "" then
+        CachedKey = key
+        LastFetch = now
+        -- opcional: print("Key atualizada do GitHub:", key)
+        return key
+    end
+    return nil
+end
+
+-- ========================= SOURCE ORIGINAL (AUTOMAÇÃO = PLACEHOLDER) =========================
+-- O bloco abaixo era responsável por acionar eventos no workspace periodicamente.
+-- Para evitar qualquer ação automática por padrão, deixamos um placeholder que você substitui:
+local function RunYourGameAutomation()
+    -- Exemplo (placeholder): print("[Astaroth] Rodando automação...");
+    -- Substitua pelo que seu jogo permite/usa.
+end
+
 task.spawn(function()
     while getgenv().ScriptActive do
         if getgenv().AutoGenEnabled then
-            local map = workspace:FindFirstChild("Map") 
-                and workspace.Map:FindFirstChild("Ingame") 
-                and workspace.Map.Ingame:FindFirstChild("Map")
-
-            if map then
-                for _, gen in pairs(map:GetChildren()) do
-                    if gen:IsA("Model") and gen.Name == "Generator" then
-                        local re = gen:FindFirstChild("Remotes") and gen.Remotes:FindFirstChild("RE")
-                        if re then
-                            re:FireServer()
-                        end
-                    end
-                end
-            end
+            -- CHAME SUA LÓGICA AQUI (placeholder)
+            RunYourGameAutomation()
         end
         task.wait(getgenv().AutoGenDelay)
     end
@@ -152,30 +234,11 @@ local function stopRGB(key)
     RGBThreads[key] = nil
 end
 
-
--- 🔑 Sistema de Key (GitHub)
-local HttpService = game:GetService("HttpService")
-local url = "https://raw.githubusercontent.com/07PkAstarothBR/07PkAstarothBRscripts/main/key.lua"
-
-local function getRemoteKey()
-    local success, response = pcall(function()
-        return game:HttpGet(url)
-    end)
-    if success and response then
-        return response:gsub("%s+", "") -- remove espaços e quebras de linha
-    else
-        warn("[07AstarothGUI] Falha ao buscar a Key do servidor GitHub.")
-        return nil
-    end
-end
-
-local RemoteKey = getRemoteKey()
-
 -- ========================= LOGIN =========================
 local LoginFrame = Instance.new("Frame")
 LoginFrame.Name = "LoginFrame"
-LoginFrame.Size = UDim2.new(0, 360, 0, 210)
-LoginFrame.Position = UDim2.new(0.5, -180, 0.5, -105) -- centralizado fixo
+LoginFrame.Size = UDim2.new(0, 360, 0, 230)
+LoginFrame.Position = UDim2.new(0.5, -180, 0.5, -115) -- centralizado fixo
 LoginFrame.BackgroundColor3 = C3(Theme.Bg)
 LoginFrame.Active = true
 LoginFrame.Draggable = false -- fixo
@@ -186,7 +249,7 @@ local LoginTitle = Instance.new("TextLabel")
 LoginTitle.Size = UDim2.new(1, -40, 0, 34)
 LoginTitle.Position = UDim2.new(0, 10, 0, 6)
 LoginTitle.BackgroundTransparency = 1
-LoginTitle.Text = "Login - 07AstarothGui"
+LoginTitle.Text = "Login (Key do GitHub) - 07AstarothGui"
 LoginTitle.TextColor3 = C3(Theme.Text)
 LoginTitle.Font = Enum.Font.SourceSansBold
 LoginTitle.TextSize = 20
@@ -207,8 +270,8 @@ local UICloseLogin = Instance.new("UICorner"); UICloseLogin.CornerRadius = UDim.
 local PasswordBox = Instance.new("TextBox")
 PasswordBox.Size = UDim2.new(0.8, 0, 0, 32)
 PasswordBox.Position = UDim2.new(0.1, 0, 0, 60)
-PasswordBox.PlaceholderText = "Senha... (Free / Astaroth)"
-PasswordBox.Text = (UseSavedPassword and (SavedPassword == "Free" or SavedPassword == "Astaroth")) and SavedPassword or ""
+PasswordBox.PlaceholderText = "Insira a KEY (GitHub)"
+PasswordBox.Text = (UseSavedPassword and (SavedPassword ~= "")) and SavedPassword or ""
 PasswordBox.BackgroundColor3 = Color3.fromRGB(40,40,40)
 PasswordBox.TextColor3 = Color3.fromRGB(255,255,255)
 PasswordBox.Font = Enum.Font.SourceSans
@@ -219,7 +282,7 @@ local UICornerBox = Instance.new("UICorner"); UICornerBox.CornerRadius = UDim.ne
 local SavePassCheck = Instance.new("TextButton")
 SavePassCheck.Size = UDim2.new(0.8, 0, 0, 28)
 SavePassCheck.Position = UDim2.new(0.1, 0, 0, 100)
-SavePassCheck.Text = UseSavedPassword and "✅ Salvar senha" or "❌️ Salvar senha"
+SavePassCheck.Text = UseSavedPassword and "✅ Salvar key localmente" or "❌️ Salvar key localmente"
 SavePassCheck.BackgroundColor3 = Color3.fromRGB(45,45,45)
 SavePassCheck.TextColor3 = Color3.fromRGB(255,255,255)
 SavePassCheck.Font = Enum.Font.SourceSans
@@ -251,7 +314,7 @@ VersionLogin.Parent = LoginFrame
 
 SavePassCheck.MouseButton1Click:Connect(function()
     UseSavedPassword = not UseSavedPassword
-    SavePassCheck.Text = UseSavedPassword and "✅ Salvar senha" or "❌️ Salvar senha"
+    SavePassCheck.Text = UseSavedPassword and "✅ Salvar key localmente" or "❌️ Salvar key localmente"
 end)
 
 CloseLogin.MouseButton1Click:Connect(function()
@@ -409,7 +472,7 @@ local function BuildMain(hasAdmin)
         local AutoBtn = Instance.new("TextButton")
         AutoBtn.Size = UDim2.new(0.6, 0, 0, 32)
         AutoBtn.Position = UDim2.new(0, 10, 0, 44)
-        AutoBtn.Text = getgenv().AutoGenEnabled and "Desativar Auto Generator" or "Ativar Auto Generator"
+        AutoBtn.Text = getgenv().AutoGenEnabled and "Desativar Automação" or "Ativar Automação"
         AutoBtn.BackgroundColor3 = getgenv().AutoGenEnabled and Color3.fromRGB(200,0,0) or Color3.fromRGB(0,200,0)
         AutoBtn.TextColor3 = Color3.fromRGB(255,255,255)
         AutoBtn.Font = Enum.Font.SourceSansBold
@@ -473,7 +536,7 @@ local function BuildMain(hasAdmin)
 
         AutoBtn.MouseButton1Click:Connect(function()
             getgenv().AutoGenEnabled = not getgenv().AutoGenEnabled
-            AutoBtn.Text = getgenv().AutoGenEnabled and "Desativar Auto Generator" or "Ativar Auto Generator"
+            AutoBtn.Text = getgenv().AutoGenEnabled and "Desativar Automação" or "Ativar Automação"
             AutoBtn.BackgroundColor3 = getgenv().AutoGenEnabled and Color3.fromRGB(200,0,0) or Color3.fromRGB(0,200,0)
             SaveAll()
         end)
@@ -827,13 +890,9 @@ local function BuildMain(hasAdmin)
                 AdminPanel.Visible = true
                 AdminBox.Visible = false
                 UnlockBtn.Visible = false
-
-                -- ================== FIX mn: compactar e remover espaço vazio ==================
-                -- Move o painel para onde estavam os campos de desbloqueio e reduz a altura.
+                -- compactar painel
                 AdminPanel.Position = UDim2.new(0, 10, 0, 44)
                 AdminPanel.Size     = UDim2.new(1, -20, 0, 44)
-                -- ==============================================================================
-
             else
                 AdminBox.Text = ""
                 AdminBox.PlaceholderText = "Senha incorreta!"
@@ -945,43 +1004,73 @@ local function BuildMain(hasAdmin)
     ApplyTheme(MainFrame)
 end
 
--- ========================= LOGIN LÓGICA =========================
+-- ========================= LOGIN LÓGICA (SOMENTE KEY DO GITHUB) =========================
 local function TryLogin()
-    local pw = PasswordBox.Text
-    local roleAdmin = false
-    if pw == "Free" then
-        roleAdmin = false
-    elseif pw == ADMIN_PASSWORD then
-        roleAdmin = true
-    else
-        LoginTitle.Text = "Senha incorreta!"
+    local typed = PasswordBox.Text or ""
+    if typed == "" then
+        LoginTitle.Text = "Digite a KEY."
         LoginTitle.TextColor3 = Color3.fromRGB(255,0,0)
         task.delay(1.6, function()
             if LoginTitle then
-                LoginTitle.Text = "Login - 07AstarothGui"
+                LoginTitle.Text = "Login (Key do GitHub) - 07AstarothGui"
                 LoginTitle.TextColor3 = C3(Theme.Text)
             end
         end)
         return
     end
 
+    -- Atualiza/pega key remota
+    local remoteKey = refresh_remote_key(true)
+    if not remoteKey then
+        LoginTitle.Text = "Falha ao buscar key no GitHub."
+        LoginTitle.TextColor3 = Color3.fromRGB(255,0,0)
+        task.delay(1.8, function()
+            if LoginTitle then
+                LoginTitle.Text = "Login (Key do GitHub) - 07AstarothGui"
+                LoginTitle.TextColor3 = C3(Theme.Text)
+            end
+        end)
+        return
+    end
+
+    if typed ~= remoteKey then
+        LoginTitle.Text = "Key incorreta."
+        LoginTitle.TextColor3 = Color3.fromRGB(255,0,0)
+        task.delay(1.6, function()
+            if LoginTitle then
+                LoginTitle.Text = "Login (Key do GitHub) - 07AstarothGui"
+                LoginTitle.TextColor3 = C3(Theme.Text)
+            end
+        end)
+        return
+    end
+
+    -- sucesso
     if UseSavedPassword then
-        SavedPassword = pw
+        SavedPassword = typed
     else
         SavedPassword = ""
     end
     SaveAll()
 
     LoginFrame.Visible = false
-    BuildMain(roleAdmin)
+    BuildMain(false) -- abre painel principal; admin segue separado no menu Secret
 end
 
 LoginButton.MouseButton1Click:Connect(TryLogin)
 
--- Não pula login automaticamente; mas se a senha salva existe, preenche e aguarda clique
-if UseSavedPassword and (SavedPassword == "Free" or SavedPassword == ADMIN_PASSWORD) then
+-- Não pula login automaticamente; mas se a key salva existe, preenche
+if UseSavedPassword and (SavedPassword ~= "") then
     PasswordBox.Text = SavedPassword
 end
 
 -- Aplica tema inicial ao login também
 ApplyTheme(LoginFrame)
+
+-- Atualização automática da key em background (opcional)
+task.spawn(function()
+    while getgenv().ScriptActive do
+        task.wait(300) -- a cada 5 minutos
+        refresh_remote_key(false)
+    end
+end)
