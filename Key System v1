@@ -1,9 +1,9 @@
 const fs = require("fs");
 const fetch = require("node-fetch");
 
-const GITHUB_USER = "SEU_USUARIO"; // seu usuário do GitHub
+const GITHUB_USER = "07PkAstarothBR"; // seu usuário do GitHub
 const REPO = "NOME_DO_REPO";       // nome do repositório
-const FILE_PATH = "key.lua";       // nome do arquivo no repo
+const FILE_PATH = "Key System v1";       // nome do arquivo no repo
 const TOKEN = "SEU_TOKEN";         // seu token GitHub (com permissão repo)
 
 function generateKey() {
